@@ -188,7 +188,26 @@ namespace Server.Engines.Craft
         {
             int index = -1;
 
+            #region Jewelry
+            this.AddJewelrySet(GemType.StarSapphire, typeof(StarSapphire));
+            this.AddJewelrySet(GemType.Emerald, typeof(Emerald));
+            this.AddJewelrySet(GemType.Sapphire, typeof(Sapphire));
+            this.AddJewelrySet(GemType.Ruby, typeof(Ruby));
+            this.AddJewelrySet(GemType.Citrine, typeof(Citrine));
+            this.AddJewelrySet(GemType.Amethyst, typeof(Amethyst));
+            this.AddJewelrySet(GemType.Tourmaline, typeof(Tourmaline));
+            this.AddJewelrySet(GemType.Amber, typeof(Amber));
+            this.AddJewelrySet(GemType.Diamond, typeof(Diamond));
+            #endregion
+
             #region Wooden Items
+            if (Core.SE)
+            {
+                index = this.AddCraft(typeof(Nunchaku), 1044042, 1030158, 70.0, 120.0, typeof(IronIngot), 1044036, 3, 1044037);
+                this.AddRes(index, typeof(Board), 1044041, 8, 1044351);
+                this.SetNeededExpansion(index, Expansion.SE);
+            }
+
             this.AddCraft(typeof(JointingPlane), 1044042, 1024144, 0.0, 50.0, typeof(Board), 1044041, 4, 1044351);
             this.AddCraft(typeof(MouldingPlane), 1044042, 1024140, 0.0, 50.0, typeof(Board), 1044041, 4, 1044351);
             this.AddCraft(typeof(SmoothingPlane), 1044042, 1024146, 0.0, 50.0, typeof(Board), 1044041, 4, 1044351);
@@ -196,12 +215,94 @@ namespace Server.Engines.Craft
             this.AddCraft(typeof(Axle), 1044042, 1024187, -25.0, 25.0, typeof(Board), 1044041, 2, 1044351);
             this.AddCraft(typeof(RollingPin), 1044042, 1024163, 0.0, 50.0, typeof(Board), 1044041, 5, 1044351);
 
-            if (Core.SE)
+            #region High Seas
+            if (Core.HS)
             {
-                index = this.AddCraft(typeof(Nunchaku), 1044042, 1030158, 70.0, 120.0, typeof(IronIngot), 1044036, 3, 1044037);
-                this.AddRes(index, typeof(Board), 1044041, 8, 1044351);
-                this.SetNeededExpansion(index, Expansion.SE);
+                AddCraft(typeof(Ramrod), 1044042, 1095839, 0.0, 50.0, typeof(Board), 1044041, 8, 1044253);
+                SetNeededExpansion(index, Expansion.HS);
+
+                index = AddCraft(typeof(Swab), 1044042, 1095840, 0.0, 50.0, typeof(Cloth), 1044286, 1, 1044253);
+                AddRes(index, typeof(Board), 1044041, 4, 1044253);
+                SetNeededExpansion(index, Expansion.HS);
             }
+            #endregion
+
+            #region SA
+            if (Core.SA)
+            {
+                index = AddCraft(typeof(SoftenedReeds), 1044042, 1112249, 75.0, 100.0, typeof(DryReeds), 1112248, 1, 1112250);
+                AddRes(index, typeof(ScouringToxin), 1112292, 2, 1112326);
+                SetRequiresBasketWeaving(index);
+                SetRequireResTarget(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(RoundBasket), 1044042, 1112293, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 2, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 3, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(RoundBasketHandles), 1044042, 1112357, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 2, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 3, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(SmallBushel), 1044042, 1112337, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 1, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 2, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(PicnicBasket2), 1044042, 1023706, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 1, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 2, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(WinnowingBasket), 1044042, 1026274, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 2, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 3, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(SquareBasket), 1044042, 1112295, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 2, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 3, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(BasketCraftable), 1044042, 1022448, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 2, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 3, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(TallRoundBasket), 1044042, 1112297, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 3, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 4, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(SmallSquareBasket), 1044042, 1112296, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 1, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 2, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(TallBasket), 1044042, 1112299, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 3, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 4, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+
+                index = AddCraft(typeof(SmallRoundBasket), 1044042, 1112298, 75.0, 100.0, typeof(SoftenedReeds), 1112249, 1, 1112251);
+                AddRes(index, typeof(Shaft), 1027125, 2, 1044351);
+                SetRequireResTarget(index);
+                SetRequiresBasketWeaving(index);
+                SetNeededExpansion(index, Expansion.SA);
+            }
+            #endregion
             #endregion
 
             #region Tools
@@ -308,6 +409,15 @@ namespace Server.Engines.Craft
                 index = this.AddCraft(typeof(FancyWindChimes), 1044050, 1030291, 80.0, 130.0, typeof(IronIngot), 1044036, 15, 1044037);
                 this.SetNeededExpansion(index, Expansion.SE);
             }
+
+            #region High Seas
+            if (Core.HS)
+            {
+                index = AddCraft(typeof(Matches), 1044050, 1096648, 15.0, 70.0, typeof(Matchcord), 1095184, 10, 1044367);
+                AddRes(index, typeof(Board), 1044041, 4, 1044351);
+                SetNeededExpansion(index, Expansion.HS);
+            }
+            #endregion
             #endregion
 
             #region Stygian Abyss
@@ -317,17 +427,12 @@ namespace Server.Engines.Craft
             SetItemHue(index, 1266);
             #endregion
 
-            #region Jewelry
-            this.AddJewelrySet(GemType.StarSapphire, typeof(StarSapphire));
-            this.AddJewelrySet(GemType.Emerald, typeof(Emerald));
-            this.AddJewelrySet(GemType.Sapphire, typeof(Sapphire));
-            this.AddJewelrySet(GemType.Ruby, typeof(Ruby));
-            this.AddJewelrySet(GemType.Citrine, typeof(Citrine));
-            this.AddJewelrySet(GemType.Amethyst, typeof(Amethyst));
-            this.AddJewelrySet(GemType.Tourmaline, typeof(Tourmaline));
-            this.AddJewelrySet(GemType.Amber, typeof(Amber));
-            this.AddJewelrySet(GemType.Diamond, typeof(Diamond));
-            #endregion
+            if (Core.TOL)
+            {
+                index = AddCraft(typeof(WallSafeDeed), 1044050, 1155860, 0.0, 0.0, typeof(IronIngot), 1044036, 20, 1044253);
+                ForceNonExceptional(index);
+                SetNeededExpansion(index, Expansion.TOL);
+            }
 
             #region Multi-Component Items
             index = this.AddCraft(typeof(AxleGears), 1044051, 1024177, 0.0, 0.0, typeof(Axle), 1044169, 1, 1044253);
@@ -569,6 +674,7 @@ namespace Server.Engines.Craft
             this.MarkOption = true;
             this.Repair = true;
             this.CanEnhance = Core.AOS;
+            this.CanAlter = Core.SA;
         }
     }
 

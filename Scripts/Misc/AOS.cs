@@ -12,6 +12,8 @@ using Server.Spells.Seventh;
 using Server.Spells.Chivalry;
 using Server.Spells.Necromancy;
 using Server.Spells.Spellweaving;
+using Server.SkillHandlers;
+using Server.Engines.CityLoyalty;
 
 namespace Server
 {
@@ -120,6 +122,7 @@ namespace Server
             {
                 // Armor Ignore on OSI ignores all defenses, not just physical.
                 int resPhys = m.PhysicalResistance;
+
                 #region SA
                 int physDamage = damage * phys * (100 - m.PhysicalResistance);
                 int fireDamage = damage * fire * (100 - m.FireResistance);
@@ -128,25 +131,11 @@ namespace Server
                 int energyDamage = damage * nrgy * (100 - m.EnergyResistance);
 
                 int[] amounts = new int[] { physDamage, fireDamage, coldDamage, poisonDamage, energyDamage };
-                //DamageEater(m, amounts);
-                //SoulCharge(m, amounts);
 
                 totalDamage = physDamage + fireDamage + coldDamage + poisonDamage + energyDamage;
                 totalDamage /= 10000;
 
-                /*int soulcharge = AosArmorAttributes.GetValue(m, AosArmorAttribute.SoulCharge);
-
-                if (soulcharge > 0)
-                {
-                    soulcharge = Scale(totalDamage, 100 - soulcharge);
-
-                    if (m.Mana >= soulcharge)
-                    {
-                        m.SendLocalizedMessage(1113599); // The soul shield effect has reduced some of the damage done to you at the cost of using your mana.
-                        m.Mana -= soulcharge;
-                        totalDamage -= soulcharge;
-                    }
-                }*/
+                
                 #endregion
 
                 if (Core.ML)
@@ -156,6 +145,8 @@ namespace Server
                     if (quiver != null)
                         totalDamage += totalDamage * quiver.DamageIncrease / 100;
                 }
+
+                BaseFishPie.ScaleDamage(m, ref totalDamage, phys, fire, cold, pois, nrgy, direct);
 
                 if (totalDamage < 1)
                     totalDamage = 1;
@@ -253,94 +244,6 @@ namespace Server
             return totalDamage;
         }
 
-        /*public static void DamageEater(Mobile m, int[] damage)
-        {
-            int alleater = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterDamage);
-            int toheal = 0, eater = 0;
-
-            if (alleater > 18)
-                alleater = 18;
-
-            for (int i = 0; i < damage.Length; i++)
-            {
-                eater = alleater;
-
-                switch (i)
-                {
-                    case 0:
-                        eater += SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterFire);
-                        break;
-                    case 1:
-                        eater += SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterCold);
-                        break;
-                    case 2:
-                        eater += SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterPoison);
-                        break;
-                    case 3:
-                        eater += SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterEnergy);
-                        break;
-                    case 4:
-                        eater += SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.EaterKinetic);
-                        break;
-                }
-
-                if (eater > 30)
-                    eater = 30;
-
-                if (eater == 0)
-                    continue;
-
-                toheal += (Scale(damage[i], (100 + eater)));
-            }
-
-            if (toheal != 0)
-            {
-                m.SendLocalizedMessage(1113617); // Some of the damage you received has been converted to heal you.
-                m.Heal(toheal);
-            }
-        }*/
-
-        /*public static void SoulCharge(Mobile m, int[] damage)
-        {
-            int charge = 0, mana = 0;
-
-            for (int i = 0; i < damage.Length; i++)
-            {
-                switch (i)
-                {
-                    case 0:
-                        charge = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.SoulChargeFire);
-                        break;
-                    case 1:
-                        charge = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.SoulChargeCold);
-                        break;
-                    case 2:
-                        charge = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.SoulChargePoison);
-                        break;
-                    case 3:
-                        charge = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.SoulChargeEnergy);
-                        break;
-                    case 4:
-                        charge = SAAbsorptionAttributes.GetValue(m, SAAbsorptionAttribute.SoulChargeKinetic);
-                        break;
-                }
-
-                if (charge > 30)
-                    charge = 30;
-
-                if (charge == 0)
-                    continue;
-
-                mana += (Scale(damage[i], (100 + charge)));
-            }
-
-            if (mana > 0)
-            {
-                m.SendLocalizedMessage(1113636); // The soul charge effect converts some of the damage you received into mana.
-                m.Mana += charge;
-            }
-        }*/
-
         public static void Fix(ref int val)
         {
             if (val < 0)
@@ -370,8 +273,8 @@ namespace Server
                 case 10: return Math.Min(100, AosAttributes.GetValue(from, AosAttribute.LowerRegCost));
                 case 11: return AosAttributes.GetValue(from, AosAttribute.SpellDamage);
                 case 12: return Math.Min(6, AosAttributes.GetValue(from, AosAttribute.CastRecovery));
-                case 13: return Math.Min(4, AosAttributes.GetValue(from, AosAttribute.CastSpeed));
-                case 14: return Math.Min(40, AosAttributes.GetValue(from, AosAttribute.LowerManaCost));
+                case 13:return AosAttributes.GetValue(from, AosAttribute.CastSpeed);
+                case 14: return Math.Min(40, AosAttributes.GetValue(from, AosAttribute.LowerManaCost)) + BaseArmor.GetInherentLowerManaCost(from);
 				default: return 0;
 			}
 		}
@@ -516,7 +419,7 @@ namespace Server
 
                 // attacker gets 10% bonus when they're under divine fury
                 if (DivineFurySpell.UnderEffect(m))
-                    value += 10;
+                    value += m.Skills[SkillName.Chivalry].Value >= 120.0 && m.Karma >= 10000 ? 20 : 10;
 
                 // Horrific Beast transformation gives a +25% bonus to damage.
                 if (TransformationSpellHelper.UnderTransformation(m, typeof(HorrificBeastSpell)))
@@ -537,6 +440,11 @@ namespace Server
                 if (TransformationSpellHelper.UnderTransformation(m, typeof(Spells.Mystic.StoneFormSpell)))
                     value -= 10;
                 #endregion
+
+                #region High Seas
+                if (BaseFishPie.IsUnderEffects(m, FishPieEffect.WeaponDam))
+                    value += 5;
+                #endregion
             }
             else if (attribute == AosAttribute.SpellDamage)
             {
@@ -550,17 +458,29 @@ namespace Server
 
                 if (context != null && context.Spell is ReaperFormSpell)
                     value += ((ReaperFormSpell)context.Spell).SpellDamageBonus;
+
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.GuildOfArcaneArts))
+                    value += 5;
+                #endregion
+
+                #region High Seas
+                if (BaseFishPie.IsUnderEffects(m, FishPieEffect.SpellDamage))
+                    value += 5;
+                #endregion
             }
             else if (attribute == AosAttribute.CastSpeed)
             {
                 if (MonstrousInterredGrizzle.UnderCacophonicAttack(m) || LadyMelisande.UnderPutridNausea(m))
                     value -= 5;
 
-                if (ProtectionSpell.Registry.ContainsKey(m) /*|| EodonianPotion.IsUnderEffects(m, PotionEffect.Urali)*/)
-                    value -= 2;
-
                 if (EssenceOfWindSpell.IsDebuffed(m))
                     value -= EssenceOfWindSpell.GetFCMalus(m);
+
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.BardicCollegium))
+                    value += 1;
+                #endregion
 
                 #region SA
                 if (Spells.Mystic.SleepSpell.IsUnderSleepEffects(m))
@@ -587,8 +507,8 @@ namespace Server
                 if (MonstrousInterredGrizzle.UnderCacophonicAttack(m) || LadyMelisande.UnderPutridNausea(m))
                     value -= 60;
 
-                if (Spells.Chivalry.DivineFurySpell.UnderEffect(m))
-                    value += 10;
+                if (DivineFurySpell.UnderEffect(m))
+                    value += m.Skills[SkillName.Chivalry].Value >= 120.0 && m.Karma >= 10000 ? 15 : 10;
 
                 value += HonorableExecution.GetSwingBonus(m);
 
@@ -609,6 +529,11 @@ namespace Server
                 if (EssenceOfWindSpell.IsDebuffed(m))
                     value -= EssenceOfWindSpell.GetSSIMalus(m);
 
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.GuildOfAssassins))
+                    value += 1;
+                #endregion
+
                 #region SA
                 if (Spells.Mystic.SleepSpell.IsUnderSleepEffects(m))
                     value -= 45;
@@ -625,8 +550,8 @@ namespace Server
                 if (LadyMelisande.UnderPutridNausea(m))
                     value -= 60;
 
-                if (Spells.Chivalry.DivineFurySpell.UnderEffect(m))
-                    value += 10; // attacker gets 10% bonus when they're under divine fury
+                if (DivineFurySpell.UnderEffect(m))
+                    value += m.Skills[SkillName.Chivalry].Value >= 120.0 && m.Karma >= 10000 ? 15 : 10;                    
 
                 if (BaseWeapon.CheckAnimal(m, typeof(GreyWolf)) || BaseWeapon.CheckAnimal(m, typeof(BakeKitsune)))
                     value += 20; // attacker gets 20% bonus when under Wolf or Bake Kitsune form
@@ -644,6 +569,11 @@ namespace Server
                 if (move != null)
                     value += move.GetAccuracyBonus(m);
 
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.WarriorsGuild))
+                    value += 5;
+                #endregion
+
                 #region SA
                 if (Spells.Mystic.SleepSpell.IsUnderSleepEffects(m))
                     value -= 45;
@@ -651,14 +581,19 @@ namespace Server
                 if (m.Race == Race.Gargoyle)
                     value += 5;  //Gargoyles get a +5 HCI
                 #endregion
+
+                #region High Seas
+                if (BaseFishPie.IsUnderEffects(m, FishPieEffect.HitChance))
+                    value += 8;
+                #endregion
             }
             else if (attribute == AosAttribute.DefendChance)
             {
                 if (LadyMelisande.UnderPutridNausea(m))
                     value -= 60;
 
-                if (Spells.Chivalry.DivineFurySpell.UnderEffect(m))
-                    value -= 20; // defender loses 20% bonus when they're under divine fury
+                if (DivineFurySpell.UnderEffect(m))
+                    value -= m.Skills[SkillName.Chivalry].Value >= 120.0 && m.Karma >= 10000 ? 10 : 20;
 
                 if (HitLower.IsUnderDefenseEffect(m))
                     value -= 25; // Under Hit Lower Defense effect -> 25% malus
@@ -676,28 +611,68 @@ namespace Server
                 // Defender loses -0/-28% if under the effect of Discordance.
                 if (SkillHandlers.Discordance.GetEffect(m, ref discordanceEffect))
                     value -= discordanceEffect;
+
+                #region High Seas
+                if (BaseFishPie.IsUnderEffects(m, FishPieEffect.DefChance))
+                    value += 8;
+                #endregion
             }
             else if (attribute == AosAttribute.RegenHits)
             {
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.MaritimeGuild))
+                    value += 2;
+                #endregion
+
+                #region High Seas
+                if (m is PlayerMobile && BaseFishPie.IsUnderEffects(m, FishPieEffect.HitsRegen))
+                    value += 3;
+
                 if (SurgeShield.IsUnderEffects(m, SurgeType.Hits))
                     value += 10;
+                #endregion
 
                 if (SearingWeaponContext.HasContext(m))
                     value -= m is PlayerMobile ? 20 : 60;
             }
             else if (attribute == AosAttribute.RegenStam)
             {
+                #region High Seas
+                if (m is PlayerMobile && BaseFishPie.IsUnderEffects(m, FishPieEffect.StamRegen))
+                    value += 3;
+
                 if (SurgeShield.IsUnderEffects(m, SurgeType.Stam))
                     value += 10;
+                #endregion
             }
             else if (attribute == AosAttribute.RegenMana)
             {
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.MerchantsAssociation))
+                    value += 1;
+                #endregion
+
+                #region High Seas
+                if (m is PlayerMobile && BaseFishPie.IsUnderEffects(m, FishPieEffect.ManaRegen))
+                    value += 3;
+
                 if (SurgeShield.IsUnderEffects(m, SurgeType.Mana))
                     value += 10;
+                #endregion
             }
-            else if (attribute == AosAttribute.LowerManaCost)
+            else if (attribute == AosAttribute.BonusDex)
             {
-                value += BaseArmor.GetInherentLowerManaCost(m);
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.OrderOfEngineers))
+                    value += 3;
+                #endregion
+            }
+            else if (attribute == AosAttribute.BonusStr)
+            {
+                #region City Loyalty
+                if (CityLoyaltySystem.HasTradeDeal(m, TradeDeal.MiningCooperative))
+                    value += 3;
+                #endregion
             }
             #endregion
 
@@ -1225,6 +1200,37 @@ namespace Server
             }
 
             return (value);
+        }
+
+        public void ScaleLeech(BaseWeapon wep, int weaponSpeed)
+        {
+            if (HitLeechHits > 0)
+            {
+                double postcap = (double)HitLeechHits / (double)Imbuing.GetPropRange(wep, AosWeaponAttribute.HitLeechHits)[1];
+                if (postcap < 1.0) postcap = 1.0;
+
+                int newhits = (int)((wep.MlSpeed * 2500 / (100 + weaponSpeed)) * postcap);
+
+                if (wep is BaseRanged)
+                    newhits /= 2;
+
+                if(HitLeechHits > newhits)
+                    HitLeechHits = newhits;
+            }
+
+            if (HitLeechMana > 0)
+            {
+                double postcap = (double)HitLeechMana / (double)Imbuing.GetPropRange(wep, AosWeaponAttribute.HitLeechMana)[1];
+                if (postcap < 1.0) postcap = 1.0;
+
+                int newmana = (int)((wep.MlSpeed * 2500 / (100 + weaponSpeed)) * postcap);
+
+                if (wep is BaseRanged)
+                    newmana /= 2;
+
+                if(HitLeechMana > newmana)
+                    HitLeechMana = newmana;
+            }
         }
 
         public override string ToString()
@@ -2182,6 +2188,10 @@ namespace Server
         ResonancePoison = 0x00000100,
         ResonanceEnergy = 0x00000200,
         ResonanceKinetic = 0x00000400,
+        /*Soul Charge is wrong. 
+         * Do not use these types. 
+         * Use AosArmorAttribute type only.
+         * Fill these in with any new attributes.*/
         SoulChargeFire = 0x00000800,
         SoulChargeCold = 0x00001000,
         SoulChargePoison = 0x00002000,
@@ -2403,7 +2413,7 @@ namespace Server
             }
         }
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        //[CommandProperty(AccessLevel.GameMaster)]
         public int SoulChargeFire
         {
             get
@@ -2412,11 +2422,11 @@ namespace Server
             }
             set
             {
-                this[SAAbsorptionAttribute.SoulChargeFire] = value;
+                //this[SAAbsorptionAttribute.SoulChargeFire] = value;
             }
         }
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        //[CommandProperty(AccessLevel.GameMaster)]
         public int SoulChargeCold
         {
             get
@@ -2425,11 +2435,11 @@ namespace Server
             }
             set
             {
-                this[SAAbsorptionAttribute.SoulChargeCold] = value;
+                //this[SAAbsorptionAttribute.SoulChargeCold] = value;
             }
         }
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        //[CommandProperty(AccessLevel.GameMaster)]
         public int SoulChargePoison
         {
             get
@@ -2438,11 +2448,11 @@ namespace Server
             }
             set
             {
-                this[SAAbsorptionAttribute.SoulChargePoison] = value;
+                //this[SAAbsorptionAttribute.SoulChargePoison] = value;
             }
         }
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        //[CommandProperty(AccessLevel.GameMaster)]
         public int SoulChargeEnergy
         {
             get
@@ -2451,11 +2461,11 @@ namespace Server
             }
             set
             {
-                this[SAAbsorptionAttribute.SoulChargeEnergy] = value;
+                //this[SAAbsorptionAttribute.SoulChargeEnergy] = value;
             }
         }
 
-        [CommandProperty(AccessLevel.GameMaster)]
+        //[CommandProperty(AccessLevel.GameMaster)]
         public int SoulChargeKinetic
         {
             get
@@ -2464,7 +2474,7 @@ namespace Server
             }
             set
             {
-                this[SAAbsorptionAttribute.SoulChargeKinetic] = value;
+                //this[SAAbsorptionAttribute.SoulChargeKinetic] = value;
             }
         }
 
@@ -2829,6 +2839,10 @@ namespace Server
                     ((BaseArmor)this.m_Owner).UnscaleDurability();
                 else if (this.m_Owner is BaseClothing)
                     ((BaseClothing)this.m_Owner).UnscaleDurability();
+            }
+            else if (Core.SA && bitmask == (int)AosAttribute.WeaponSpeed && m_Owner is BaseWeapon)
+            {
+                ((BaseWeapon)m_Owner).WeaponAttributes.ScaleLeech((BaseWeapon)m_Owner, value);
             }
 
             uint mask = (uint)bitmask;

@@ -50,6 +50,9 @@ namespace Server.Commands
             new CommandEntry("Covetous",        "SetupNewCovetous", "DeleteCovetous",       118),
             new CommandEntry("Shame",           "GenerateNewShame", "DeleteShame",          119),
             new CommandEntry("New Magincia",    "GenNewMagincia",   "DeleteNewMagincia",    120),
+            new CommandEntry("High Seas",       "DecorateHS",       "DeleteHS",             121),
+            new CommandEntry("City Loyalty",    "SetupCityLoyaltySystem",   "DeleteCityLoyaltySystem",             122),
+            new CommandEntry("Castle Blackthorn",    "GenBlackthorn",       null,                                  123),
 		});
         public CreateWorld()
         {
@@ -148,7 +151,7 @@ namespace Server.Commands
 							case CreateWorld.GumpType.Delete:
 								if (!String.IsNullOrEmpty(entry.DeleteCommand))
 								{
-									from.Say("Recreating " + entry.Name);
+									from.Say("Deleting " + entry.Name);
 									CommandSystem.Handle(from, prefix + entry.DeleteCommand);
 								}
 								break;

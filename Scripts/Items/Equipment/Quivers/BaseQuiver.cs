@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 namespace Server.Items
 {
+    [Alterable(typeof(DefTailoring), typeof(GargishLeatherWingArmor), true)]
     public class BaseQuiver : Container, ICraftable, ISetItem
     {
         public override int DefaultGumpID
@@ -44,6 +45,8 @@ namespace Server.Items
         //private int m_LowerAmmoCost;
         private int m_WeightReduction;
         private int m_DamageIncrease;
+
+		public virtual bool CanAlter { get { return true; } }
 
         [CommandProperty(AccessLevel.GameMaster)]
         public bool IsArrowAmmo { get; set; }
@@ -560,6 +563,7 @@ namespace Server.Items
             }
             #endregion
         }
+
 		public override void OnSingleClick(Mobile from)
 		{
 			base.OnSingleClick(from);
@@ -569,6 +573,11 @@ namespace Server.Items
 				LabelTo(from, 1050043, m_Crafter.TitleName); // crafted by ~1_NAME~
 			}
 		}
+
+        public int SetResistBonus(ResistanceType resist)
+        {
+            return 0;
+        }
         
         private static void SetSaveFlag(ref SaveFlag flags, SaveFlag toSet, bool setIf)
         {

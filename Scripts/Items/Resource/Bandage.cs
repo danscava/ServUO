@@ -449,9 +449,17 @@ namespace Server.Items
 
 				#region Heritage Items
 				healing += EnhancedBandage.HealingBonus;
-				#endregion
+                #endregion
 
-				if (chance > Utility.RandomDouble())
+                #region Bandage Healing Bonus Items
+                Asclepius asclepius = m_Healer.FindItemOnLayer(Layer.TwoHanded) as Asclepius;
+                GargishAsclepius gargishasclepius = m_Healer.FindItemOnLayer(Layer.TwoHanded) as GargishAsclepius;
+
+                if (asclepius != null || gargishasclepius != null)
+                    healing += 15;
+                #endregion
+
+                if (chance > Utility.RandomDouble())
 				{
 					healerNumber = 500969; // You finish applying the bandages.
 
@@ -484,11 +492,16 @@ namespace Server.Items
 						toHeal -= m_Slips * 4;
 					}
 
-					if (toHeal < 1)
-					{
-						toHeal = 1;
-						healerNumber = 500968; // You apply the bandages, but they barely help.
-					}
+                    #region City Loyalty
+                    if (Server.Engines.CityLoyalty.CityLoyaltySystem.HasTradeDeal(m_Healer, Server.Engines.CityLoyalty.TradeDeal.GuildOfHealers))
+                        toHeal += (int)Math.Ceiling(toHeal * 0.05);
+                    #endregion
+
+                    if (toHeal < 1)
+                    {
+                        toHeal = 1;
+                        healerNumber = 500968; // You apply the bandages, but they barely help.
+                    }
 
 					m_Patient.Heal((int)toHeal, m_Healer, false);
 				}

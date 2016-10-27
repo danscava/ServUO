@@ -114,9 +114,11 @@ namespace Server.Items
 
 		#region Mondain's Legacy
 		private bool m_Immolating; // Is this weapon blessed via Immolating Weapon arcanists spell? Temporary; not serialized.
-		#endregion
+        #endregion
 
-		private AosAttributes m_AosAttributes;
+        private bool m_Altered;
+
+        private AosAttributes m_AosAttributes;
 		private AosWeaponAttributes m_AosWeaponAttributes;
 		private AosSkillBonuses m_AosSkillBonuses;
 		private AosElementAttributes m_AosElementDamages;
@@ -194,6 +196,7 @@ namespace Server.Items
 
         public virtual bool CanFortify { get { return !IsImbued && NegativeAttributes.Antique < 3; } }
         public virtual bool CanRepair { get { return m_NegativeAttributes.NoRepair == 0; } }
+		public virtual bool CanAlter { get { return true; } }
 
 		public override int PhysicalResistance { get { return m_AosWeaponAttributes.ResistPhysicalBonus; } }
 		public override int FireResistance { get { return m_AosWeaponAttributes.ResistFireBonus; } }
@@ -1900,12 +1903,6 @@ namespace Server.Items
 			OnHit(attacker, defender, 1.0);
 		}
 
-        /// <summary>
-        /// 020416 Crome696 : Adding concecrate Weapon Bonus
-        /// </summary>
-        /// <param name="attacker"></param>
-        /// <param name="defender"></param>
-        /// <param name="damageBonus"></param>
 		public virtual void OnHit(Mobile attacker, Mobile defender, double damageBonus)
 		{
 			if (MirrorImage.HasClone(defender) && (defender.Skills.Ninjitsu.Value / 150.0) > Utility.RandomDouble())
@@ -1972,18 +1969,24 @@ namespace Server.Items
 
             percentageBonus += (int)(damageBonus * 100) - 100;
 
-			CheckSlayerResult cs = CheckSlayers(attacker, defender);
+			CheckSlayerResult cs = CheckSlayers(attacker, defender, false);
 
 			if (cs != CheckSlayerResult.None)
 			{
-				if (cs == CheckSlayerResult.Slayer)
-					defender.FixedEffect(0x37B9, 10, 5);
+			    defender.FixedEffect(0x37B9, 10, 5);
 
-                if (Core.SA && cs == CheckSlayerResult.Slayer  && cs != CheckSlayerResult.Opposition)
-				    percentageBonus += 200;
-                else
+                if (cs == CheckSlayerResult.SuperSlayer || cs == CheckSlayerResult.Opposition)
                     percentageBonus += 100;
+                else if (cs == CheckSlayerResult.Slayer)
+                    percentageBonus += 200;
+            }
 
+            cs = CheckSlayers(attacker, defender, true);
+
+            if (cs != CheckSlayerResult.None)
+            {
+                defender.FixedEffect(0x37B9, 10, 5);
+                percentageBonus += 100;
             }
 
 			if (!attacker.Player)
@@ -2033,8 +2036,9 @@ namespace Server.Items
 
 			TransformContext context = TransformationSpellHelper.GetContext(defender);
 
-			if ((m_Slayer == SlayerName.Silver || m_Slayer2 == SlayerName.Silver) && context != null &&
-				context.Spell is NecromancerSpell && context.Type != typeof(HorrificBeastSpell))
+			if ((m_Slayer == SlayerName.Silver || m_Slayer2 == SlayerName.Silver) 
+                && ((context != null && context.Spell is NecromancerSpell && context.Type != typeof(HorrificBeastSpell))
+                || (defender is BaseCreature && (defender.Body == 747 || defender.Body == 748 || defender.Body == 749 || defender.Hue == 0x847E))))
 			{
 				// Every necromancer transformation other than horrific beast takes an additional 25% damage
 				percentageBonus += 25;
@@ -2314,25 +2318,8 @@ namespace Server.Items
 
 				if (Core.SA) // New formulas
 				{
-					int maxLeech = ((int)(MlSpeed * 2500)) / (100 + Attributes.GetValue((int)AosAttribute.WeaponSpeed));
-					if(this is BaseRanged)
-					{
-						maxLeech /= 2;
-					}
-
-					int weaponLeech = WeaponAttributes.GetValue((int)AosWeaponAttribute.HitLeechHits);
-					if(weaponLeech > maxLeech)
-					{
-						weaponLeech = maxLeech;
-					}
-					lifeLeech += weaponLeech;
-
-					weaponLeech = WeaponAttributes.GetValue((int)AosWeaponAttribute.HitLeechMana);
-					if (weaponLeech > maxLeech)
-					{
-						weaponLeech = maxLeech;
-					}
-					manaLeech += weaponLeech;
+                    lifeLeech = (int)(WeaponAttributes.HitLeechHits * propertyBonus);
+                    manaLeech = (int)(WeaponAttributes.HitLeechMana * propertyBonus);
 				}
 				else // Old leech formulas
 				{
@@ -2381,7 +2368,8 @@ namespace Server.Items
 				{
 					if (lifeLeech != 0)
 					{
-						int toHeal = (int)(AOS.Scale(damageGiven, lifeLeech) * 0.3);
+						int toHeal = Utility.RandomMinMax(0, (int)(AOS.Scale(damageGiven, lifeLeech) * 0.3));
+
 						#region High Seas
 						if (defender is BaseCreature && ((BaseCreature)defender).TaintedLifeAura)
 						{
@@ -2401,8 +2389,7 @@ namespace Server.Items
 
                     if (manaLeech != 0)
 					{
-						attacker.Mana += (int)(AOS.Scale(damageGiven, manaLeech) * 0.4);
-						defender.Mana -= (int)(AOS.Scale(damageGiven, wraithLeech) * 0.4);
+                        attacker.Mana += Utility.RandomMinMax(0, (int)(AOS.Scale(damageGiven, manaLeech) * 0.4));
 					}
 				}
 				else // Old formulas
@@ -2897,55 +2884,57 @@ namespace Server.Items
 		}
 		#endregion
 
-		public virtual CheckSlayerResult CheckSlayers(Mobile attacker, Mobile defender)
-		{
-			BaseWeapon atkWeapon = attacker.Weapon as BaseWeapon;
-			SlayerEntry atkSlayer = SlayerGroup.GetEntryByName(atkWeapon.Slayer);
-			SlayerEntry atkSlayer2 = SlayerGroup.GetEntryByName(atkWeapon.Slayer2);
+        public virtual CheckSlayerResult CheckSlayers(Mobile attacker, Mobile defender, bool checktalisman)
+        {
+            if (checktalisman)
+            {
+                BaseTalisman talisman = attacker.Talisman as BaseTalisman;
 
-            List<SlayerName> super = new List<SlayerName>() {SlayerName.Repond, SlayerName.Silver, SlayerName.Fey, SlayerName.ElementalBan, SlayerName.Exorcism, SlayerName.ArachnidDoom, SlayerName.ReptilianDeath};
+                if (talisman != null && TalismanSlayer.Slays(talisman.Slayer, defender))
+                {
+                    return CheckSlayerResult.Slayer;
+                }
+            }
+            else
+            {
+                BaseWeapon atkWeapon = attacker.Weapon as BaseWeapon;
+                SlayerEntry atkSlayer = SlayerGroup.GetEntryByName(atkWeapon.Slayer);
+                SlayerEntry atkSlayer2 = SlayerGroup.GetEntryByName(atkWeapon.Slayer2);
 
-		    if ((atkSlayer != null && atkSlayer.Slays(defender) && super.Contains(atkSlayer.Name)) || (atkSlayer2 != null && atkSlayer2.Slays(defender) && super.Contains(atkSlayer2.Name)))
-		    {
-		        return CheckSlayerResult.SuperSlayer;
-		    }
+                List<SlayerName> super = new List<SlayerName>() { SlayerName.Repond, SlayerName.Silver, SlayerName.Fey, SlayerName.ElementalBan, SlayerName.Exorcism, SlayerName.ArachnidDoom, SlayerName.ReptilianDeath };
 
-            if (atkSlayer != null && atkSlayer.Slays(defender) || atkSlayer2 != null && atkSlayer2.Slays(defender))
-			{
-				return CheckSlayerResult.Slayer;
-			}
+                if ((atkSlayer != null && atkSlayer.Slays(defender) && super.Contains(atkSlayer.Name)) || (atkSlayer2 != null && atkSlayer2.Slays(defender) && super.Contains(atkSlayer2.Name)))
+                {
+                    return CheckSlayerResult.SuperSlayer;
+                }
 
-			BaseTalisman talisman = attacker.Talisman as BaseTalisman;
+                if (atkSlayer != null && atkSlayer.Slays(defender) || atkSlayer2 != null && atkSlayer2.Slays(defender))
+                {
+                    return CheckSlayerResult.Slayer;
+                }
 
-			if (talisman != null && TalismanSlayer.Slays(talisman.Slayer, defender))
-			{
-				return CheckSlayerResult.Slayer;
-			}
+                ISlayer defISlayer = Spellbook.FindEquippedSpellbook(defender);
 
-			if (!Core.SE)
-			{
-				ISlayer defISlayer = Spellbook.FindEquippedSpellbook(defender);
+                if (defISlayer == null)
+                {
+                    defISlayer = defender.Weapon as ISlayer;
+                }
 
-				if (defISlayer == null)
-				{
-					defISlayer = defender.Weapon as ISlayer;
-				}
+                if (defISlayer != null)
+                {
+                    SlayerEntry defSlayer = SlayerGroup.GetEntryByName(defISlayer.Slayer);
+                    SlayerEntry defSlayer2 = SlayerGroup.GetEntryByName(defISlayer.Slayer2);
 
-				if (defISlayer != null)
-				{
-					SlayerEntry defSlayer = SlayerGroup.GetEntryByName(defISlayer.Slayer);
-					SlayerEntry defSlayer2 = SlayerGroup.GetEntryByName(defISlayer.Slayer2);
+                    if (defSlayer != null && defSlayer.Group.OppositionSuperSlays(attacker) ||
+                        defSlayer2 != null && defSlayer2.Group.OppositionSuperSlays(attacker))
+                    {
+                        return CheckSlayerResult.Opposition;
+                    }
+                }
+            }
 
-					if (defSlayer != null && defSlayer.Group.OppositionSuperSlays(attacker) ||
-						defSlayer2 != null && defSlayer2.Group.OppositionSuperSlays(attacker))
-					{
-						return CheckSlayerResult.Opposition;
-					}
-				}
-			}
-
-			return CheckSlayerResult.None;
-		}
+            return CheckSlayerResult.None;
+        }
 
 		public virtual void AddBlood(Mobile attacker, Mobile defender, int damage)
 		{
@@ -3521,7 +3510,9 @@ namespace Server.Items
 		{
 			base.Serialize(writer);
 
-			writer.Write(14); // version
+			writer.Write(15); // version
+
+            // Version 15 converts old leech to new leech
 
             //Version 14
             writer.Write(m_IsImbued);
@@ -3635,8 +3626,9 @@ namespace Server.Items
 			SetSaveFlag(ref flags, SaveFlag.EngravedText, !String.IsNullOrEmpty(m_EngravedText));
 			SetSaveFlag(ref flags, SaveFlag.xAbsorptionAttributes, !m_SAAbsorptionAttributes.IsEmpty);
             SetSaveFlag(ref flags, SaveFlag.xNegativeAttributes, !m_NegativeAttributes.IsEmpty);
+            SetSaveFlag(ref flags, SaveFlag.Altered, m_Altered);
 
-			writer.Write((long)flags);
+            writer.Write((long)flags);
 
 			if (GetSaveFlag(flags, SaveFlag.DamageLevel))
 			{
@@ -3832,8 +3824,9 @@ namespace Server.Items
 			ElementalDamages = 0x20000000,
 			EngravedText = 0x40000000,
 			xAbsorptionAttributes = 0x80000000,
-            xNegativeAttributes = 0x100000000
-		}
+            xNegativeAttributes = 0x100000000,
+            Altered = 0x200000000
+        }
 
 		#region Mondain's Legacy Sets
 		private static void SetSaveFlag(ref SetFlag flags, SetFlag toSet, bool setIf)
@@ -3871,6 +3864,7 @@ namespace Server.Items
 
 			switch (version)
 			{
+                case 15:
                 case 14:
                     {
                         m_IsImbued = reader.ReadBool();
@@ -4250,9 +4244,12 @@ namespace Server.Items
                         {
                             m_NegativeAttributes = new NegativeAttributes(this);
                         }
-						#endregion
+                        #endregion
 
-						break;
+                        if (GetSaveFlag(flags, SaveFlag.Altered))
+                            m_Altered = true;
+
+                        break;
 					}
 				case 4:
 					{
@@ -4386,6 +4383,14 @@ namespace Server.Items
 						break;
 					}
 			}
+
+            if (version < 15)
+            {
+                if (WeaponAttributes.HitLeechHits > 0 || WeaponAttributes.HitLeechMana > 0)
+                {
+                    WeaponAttributes.ScaleLeech(this, Attributes.WeaponSpeed);
+                }
+            }
 
 			#region Mondain's Legacy Sets
 			if (m_SetAttributes == null)
@@ -4658,7 +4663,12 @@ namespace Server.Items
                         list.Add(1151756, String.Format("#{0}\t{1}\t#{2}", prefix, GetNameString(), RunicReforging.GetSuffixName(m_ReforgedSuffix))); // ~1_PREFIX~ ~2_ITEM~ of ~3_SUFFIX~
                 }
                 else if (m_ReforgedSuffix != ReforgedSuffix.None)
-                    list.Add(1151758, String.Format("{0}\t#{1}", GetNameString(), RunicReforging.GetSuffixName(m_ReforgedSuffix))); // ~1_ITEM~ of ~2_SUFFIX~
+                {
+                    if (m_ReforgedSuffix == ReforgedSuffix.Minax)
+                        list.Add(1154507, String.Format("{0}", GetNameString())); // ~1_ITEM~ bearing the crest of Minax
+                    else
+                        list.Add(1151758, String.Format("{0}\t#{1}", GetNameString(), RunicReforging.GetSuffixName(m_ReforgedSuffix))); // ~1_ITEM~ of ~2_SUFFIX~
+                }
             }
 			else if (oreType != 0)
 			{
@@ -4706,7 +4716,7 @@ namespace Server.Items
 				return true;
 			}
 
-			return (m_AosAttributes.SpellChanneling != 0);
+            return AosAttributes.GetValue(from, AosAttribute.SpellChanneling) > 0;
 		}
 
 		public virtual int ArtifactRarity { get { return 0; } }
@@ -4764,8 +4774,11 @@ namespace Server.Items
 				list.Add(1050043, m_Crafter.TitleName); // crafted by ~1_NAME~
 			}
 
-			#region Factions
-			if (m_FactionState != null)
+            if (m_Altered)
+                list.Add(1111880); // Altered  
+
+            #region Factions
+            if (m_FactionState != null)
 			{
 				list.Add(1041350); // faction item
 			}
@@ -4960,7 +4973,7 @@ namespace Server.Items
 				list.Add(1060412, prop.ToString()); // faster cast recovery ~1_val~
 			}
 
-			if ((prop = m_AosAttributes.CastSpeed) != 0)
+            if ((prop = fcMalus ? m_AosAttributes.CastSpeed - 1 : m_AosAttributes.CastSpeed) != 0)
 			{
 				list.Add(1060413, prop.ToString()); // faster casting ~1_val~
 			}
@@ -5014,7 +5027,7 @@ namespace Server.Items
 
             if ((fprop = (double)m_AosWeaponAttributes.HitLeechHits * focusBonus) != 0)
 			{
-				list.Add(1060422, ((int)fprop).ToString()); // hit life leech ~1_val~%
+                list.Add(1060422, Math.Min(100, (int)fprop).ToString()); // hit life leech ~1_val~%
 			}
 
             if ((fprop = (double)m_AosWeaponAttributes.HitLightning * focusBonus) != 0)
@@ -5069,7 +5082,7 @@ namespace Server.Items
 
             if ((fprop = (double)m_AosWeaponAttributes.HitLeechMana * focusBonus) != 0)
 			{
-				list.Add(1060427, ((int)fprop).ToString()); // hit mana leech ~1_val~%
+				list.Add(1060427, Math.Min(100, (int)fprop).ToString()); // hit mana leech ~1_val~%
 			}
 
             if ((fprop = (double)m_AosWeaponAttributes.HitPhysicalArea * focusBonus) != 0)
@@ -5084,7 +5097,7 @@ namespace Server.Items
 
             if ((fprop = (double)m_AosWeaponAttributes.HitLeechStam * focusBonus) != 0)
 			{
-				list.Add(1060430, ((int)fprop).ToString()); // hit stamina leech ~1_val~%
+                list.Add(1060430, Math.Min(100, (int)fprop).ToString()); // hit stamina leech ~1_val~%
 			}
 
 			if (ImmolatingWeaponSpell.IsImmolating(this))
@@ -5177,7 +5190,7 @@ namespace Server.Items
 				list.Add(1060450, prop.ToString()); // self repair ~1_val~
 			}
 
-			if ((prop = m_AosAttributes.SpellChanneling) != 0)
+            if ((prop = fcMalus ? 1 : m_AosAttributes.SpellChanneling) != 0)
 			{
 				list.Add(1060482); // spell channeling
 			}
@@ -5490,6 +5503,8 @@ namespace Server.Items
 			from.Send(new DisplayEquipmentInfo(this, eqInfo));
 		}
 
+
+
 		public static BaseWeapon Fists { get; set; }
 
 		#region ICraftable Members
@@ -5760,8 +5775,24 @@ namespace Server.Items
 
 			SetHelper.GetSetProperties(list, this);
 		}
-		#endregion
-	}
+
+        public int SetResistBonus(ResistanceType resist)
+        {
+            return 0;
+        }
+        #endregion
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public bool Altered
+        {
+            get { return m_Altered; }
+            set
+            {
+                m_Altered = value;
+                InvalidateProperties();
+            }
+        }
+    }
 
 	public enum CheckSlayerResult
 	{

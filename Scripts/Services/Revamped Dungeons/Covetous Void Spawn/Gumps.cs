@@ -108,7 +108,10 @@ namespace Server.Engines.VoidPool
         {
             Mobile from = e.Mobile;
 
-            e.Mobile.SendGump(new VoidPoolGump(from.Map == Map.Trammel ? VoidPoolController.InstanceTram : VoidPoolController.InstanceFel, from as PlayerMobile));
+            if (VoidPoolController.InstanceTram != null || VoidPoolController.InstanceFel != null)
+            {
+                e.Mobile.SendGump(new VoidPoolGump(from.Map == Map.Trammel ? VoidPoolController.InstanceTram : VoidPoolController.InstanceFel, from as PlayerMobile));
+            }
         }
 	}
 
@@ -213,6 +216,8 @@ namespace Server.Engines.VoidPool
 	
 		public VoidPoolRewardGump(Mobile owner, PlayerMobile user) : base(50, 50)
 		{
+            user.CloseGump(typeof(VoidPoolRewardGump));
+
 			Owner = owner;
             User = user;
 		

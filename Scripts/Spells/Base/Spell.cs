@@ -243,7 +243,13 @@ namespace Server.Spells
 
                 #region Stygian Abyss
                 int focus = SAAbsorptionAttributes.GetValue(Caster, SAAbsorptionAttribute.CastingFocus);
-                if (focus > 12) focus = 12;
+
+                if (BaseFishPie.IsUnderEffects(m_Caster, FishPieEffect.CastFocus))
+                    focus += 2;
+
+                if (focus > 12) 
+                    focus = 12;
+
                 focus += m_Caster.Skills[SkillName.Inscribe].Value >= 50 ? GetInscribeFixed(m_Caster) / 200 : 0;
 
                 if (focus > 0 && focus > Utility.Random(100))
@@ -610,6 +616,14 @@ namespace Server.Spells
 
 		public virtual bool CheckCast()
 		{
+            #region High Seas
+            if (Server.Multis.BaseBoat.IsDriving(m_Caster) && m_Caster.AccessLevel == AccessLevel.Player)
+            {
+                m_Caster.SendLocalizedMessage(1049616); // You are too busy to do that at the moment.
+                return false;
+            }
+            #endregion
+
 			return true;
 		}
 
@@ -833,10 +847,13 @@ namespace Server.Spells
 
 			// Lower Mana Cost = 40%
 			int lmc = AosAttributes.GetValue(m_Caster, AosAttribute.LowerManaCost);
+
 			if (lmc > 40)
 			{
 				lmc = 40;
 			}
+
+            lmc += BaseArmor.GetInherentLowerManaCost(m_Caster);
 
 			scalar -= (double)lmc / 100;
 
@@ -911,7 +928,7 @@ namespace Server.Spells
 			int fcMax = 4;
 
 			if (CastSkill == SkillName.Magery || CastSkill == SkillName.Necromancy ||
-				(CastSkill == SkillName.Chivalry && m_Caster.Skills[SkillName.Magery].Value >= 70.0))
+				(CastSkill == SkillName.Chivalry && m_Caster.Skills[SkillName.Magery].Value >= 70.0 || m_Caster.Skills[SkillName.Mysticism].Value >= 70.0))
 			{
 				fcMax = 2;
 			}
@@ -922,6 +939,11 @@ namespace Server.Spells
 			{
 				fc = fcMax;
 			}
+
+            if (ProtectionSpell.Registry.ContainsKey(m_Caster) /*|| EodonianPotion.IsUnderEffects(m, PotionEffect.Urali)*/)
+            {
+                fc = Math.Min(fcMax - 2, fc - 2);
+            }
 
 			TimeSpan baseDelay = CastDelayBase;
 

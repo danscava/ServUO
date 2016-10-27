@@ -67,8 +67,10 @@ namespace Server.Engines.Points
 		
 		public override void OnPlayerAdded(PlayerMobile pm)
 		{
-			if(pm.Race == Race.Gargoyle)
-				PlayerTable[pm] = 2000;
+            if (pm.Race == Race.Gargoyle)
+            {
+                AwardPoints(pm, 2000, false, false);
+            }
 		}
 		
 		public bool IsNoble(Mobile from)
@@ -166,6 +168,7 @@ namespace Server.Engines.Points
             //Quests
 			Entries[typeof(ABrokenVaseQuest)]     				= new Tuple<double, double>(5, 0.5);
 			Entries[typeof(PuttingThePiecesTogetherQuest)]  	= new Tuple<double, double>(15, 1.5);
+            Entries[typeof(ALittleSomething)]  	                = new Tuple<double, double>(25, 2.5);
 			Entries[typeof(TheExchangeQuest)]			        = new Tuple<double, double>(35, 3.5);
 			Entries[typeof(YeOldeGargishQuest)]     			= new Tuple<double, double>(50, 5.0);
 			Entries[typeof(AWorthyPropositionQuest)]			= new Tuple<double, double>(50, 5.0);

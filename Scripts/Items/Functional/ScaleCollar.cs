@@ -19,20 +19,26 @@ namespace Server.Items
 
         public override void OnDoubleClick(Mobile from)
         {
-            if (IsChildOf(from.Backpack) && m_Timer != null)
+            if (IsChildOf(from.Backpack) && m_Timer == null)
             {
                 from.Target = new InternalTarget(this);
                 from.SendLocalizedMessage(1112481); //Which battle chicken do you wish to ensnare?
             }
+            else if (IsChildOf(from.Backpack) && m_Timer != null)
+            {
+                from.SendLocalizedMessage(501789); //You must wait before trying again.
+            }
+            else
+                from.SendLocalizedMessage(1042004); // That must be in your pack for you to use it.
         }
 
         public void OnTarget(Mobile from, object targeted)
         {
-            if (targeted is BattleChickenLizard)
+            if (targeted is BattleChickenLizard && !((BattleChickenLizard)targeted).Controlled)
             {
                 BattleChickenLizard bcl = (BattleChickenLizard)targeted;
 
-                int chance = 50 / (int)from.GetDistanceToSqrt(bcl.Location);
+                int chance = 50 / (int)Math.Max(1, from.GetDistanceToSqrt(bcl.Location));
 
                 if (chance > Utility.Random(100))
                 {
@@ -50,6 +56,8 @@ namespace Server.Items
         {
             if (lizard != null && lizard.Controlled)
             {
+                lizard.Frozen = false;
+
                 m_Timer.Stop();
                 m_Timer = null;
             }
@@ -59,11 +67,13 @@ namespace Server.Items
 
         public void EndTimer(BaseCreature lizard, Mobile owner)
         {
-            if (lizard != null)
+            if (lizard != null && lizard.Alive)
+            {
                 lizard.Frozen = false;
 
-            if (owner != null && !lizard.Controlled)
-                owner.SendLocalizedMessage(1112482); //The chicken frees itself of the collar!!
+                if (owner != null && !lizard.Controlled)
+                    owner.SendLocalizedMessage(1112482); //The chicken frees itself of the collar!!
+            }
 
             m_Timer.Stop();
             m_Timer = null;

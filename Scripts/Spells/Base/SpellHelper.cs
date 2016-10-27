@@ -462,6 +462,26 @@ namespace Server.Spells
                 }
             }
 
+            // Non-enemy monsters will no longer flag area spells on each other
+            if (from is BaseCreature && to is BaseCreature)
+            {
+                BaseCreature fromBC = (BaseCreature)from;
+                BaseCreature toBC = (BaseCreature)to;
+
+                if (fromBC.GetMaster() is BaseCreature)
+                    fromBC = fromBC.GetMaster() as BaseCreature;
+
+                if (toBC.GetMaster() is BaseCreature)
+                    toBC = toBC.GetMaster() as BaseCreature;
+
+                if (toBC.IsEnemy(fromBC))   //Natural Enemies
+                    return true;
+
+                // All involved are monsters- no damage. If falls through this statement, normal noto rules apply
+                if (!toBC.Controlled && !toBC.Summoned && !fromBC.Controlled && !fromBC.Summoned) //All involved are monsters- no damage
+                    return false;
+            }
+
             if (to is BaseCreature && !((BaseCreature)to).Controlled && ((BaseCreature)to).InitialInnocent)
                 return true;
 
@@ -708,6 +728,11 @@ namespace Server.Spells
                 if (m_TravelCaster.Region.IsPartOf("Blighted Grove") && loc.Z < -10)
                     isValid = false;
             }
+            #endregion
+
+            #region High Seas
+            if (BaseBoat.IsDriving(caster))
+                return false;
             #endregion
 
             for (int i = 0; isValid && i < m_Validators.Length; ++i)
@@ -1150,12 +1175,14 @@ namespace Server.Spells
             {
                 if (context.Type == typeof(WraithFormSpell))
                 {
-                    int wraithLeech = (5 + (int)((15 * from.Skills.SpiritSpeak.Value) / 100)); // Wraith form gives 5-20% mana leech
+                    int wraithLeech = Math.Min(target.Mana, (5 + (int)((15 * from.Skills.SpiritSpeak.Value) / 100))); // Wraith form gives 5-20% mana leech
                     int manaLeech = AOS.Scale(damageGiven, wraithLeech);
                     if (manaLeech != 0)
                     {
                         from.Mana += manaLeech;
                         from.PlaySound(0x44D);
+
+                        target.Mana -= manaLeech;
                     }
                 }
                 else if (context.Type == typeof(VampiricEmbraceSpell))

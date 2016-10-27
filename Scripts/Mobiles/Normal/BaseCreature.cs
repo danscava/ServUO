@@ -256,7 +256,7 @@ namespace Server.Mobiles
 
         private int m_FailedReturnHome; /* return to home failure counter */
 
-        //private int m_QLPoints;
+        private bool m_IsChampionSpawn;
         #endregion
 
         public virtual InhumanSpeech SpeechType { get { return null; } }
@@ -541,6 +541,21 @@ namespace Server.Mobiles
                 InvalidateProperties();
             }
         }
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public bool IsChampionSpawn
+        {
+            get { return m_IsChampionSpawn; }
+            set
+            {
+                if (!m_IsChampionSpawn && value)
+                    SetToChampionSpawn();
+
+                m_IsChampionSpawn = value;
+            }
+        }
+
+        public bool IsAmbusher { get; set; }
 
         public virtual bool HasManaOveride { get { return false; } }
 
@@ -1012,14 +1027,16 @@ namespace Server.Mobiles
             }
 
             BaseCreature c = (BaseCreature)m;
+            BaseCreature t = this;
 
-            if ((FightMode == FightMode.Evil && m.Karma < 0) || (c.FightMode == FightMode.Evil && Karma < 0) || (FightMode == FightMode.Good && m.Karma > 0) || (c.FightMode == FightMode.Good && Karma > 0))
-            {
-                return true;
-            }
+            // Summons should have same rules as their master
+            if (c.Summoned && c.SummonMaster != null && c.SummonMaster is BaseCreature)
+                c = c.SummonMaster as BaseCreature;
 
-            return (m_iTeam != c.m_iTeam || ((m_bSummoned || m_bControlled) != (c.m_bSummoned || c.m_bControlled))
-                   /* || c.Combatant == this*/);
+            if (t.Summoned && t.SummonMaster != null && t.SummonMaster is BaseCreature)
+                t = t.SummonMaster as BaseCreature;
+
+            return (t.m_iTeam != c.m_iTeam || ((t.m_bSummoned || t.m_bControlled) != (c.m_bSummoned || c.m_bControlled))/* || c.Combatant == this*/ );
         }
 
         public override string ApplyNameSuffix(string suffix)
@@ -2691,6 +2708,9 @@ namespace Server.Mobiles
                     break;
                 case AIType.AI_Mystic:
                     m_AI = new MysticAI(this);
+                    break;
+                case AIType.AI_Paladin:
+                    m_AI = new PaladinAI(this);
                     break;
             }
         }
@@ -4649,6 +4669,10 @@ namespace Server.Mobiles
             }
         }
 
+        public virtual void SetToChampionSpawn()
+        {
+        }
+
         public virtual void SetWearable(Item item, int hue = -1, double dropChance = 0.0)
         {
             if (!EquipItem(item))
@@ -4759,6 +4783,9 @@ namespace Server.Mobiles
                     list.Add(502006); // (tame)
                 }
             }
+
+            if (IsAmbusher)
+                list.Add(1155480); // Ambusher
         }
 
         public override void OnSingleClick(Mobile from)
@@ -5582,6 +5609,10 @@ namespace Server.Mobiles
             InvalidateProperties();
 
             return true;
+        }
+
+        public virtual void OnAfterTame(Mobile tamer)
+        {
         }
 
         public override void OnRegionChange(Region Old, Region New)
